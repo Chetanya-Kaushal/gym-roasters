@@ -1,4 +1,4 @@
-// Mobile build (VITE_MOBILE=1) — the standalone app-store version (Capacitor native shell).
+// Mobile build (NEXT_PUBLIC_MOBILE=1) — the standalone app-store version (Capacitor native shell).
 //
 // There is no backend: nothing to sign in to, everything lives on the phone. Unlike guest
 // mode in a browser, this is the user's only copy of their training log, so it can't depend
@@ -11,7 +11,7 @@
 // web bundles; the Capacitor plugins are only ever imported behind it.
 import { t } from './i18n.js'
 
-export const MOBILE = import.meta.env.VITE_MOBILE === '1'
+export const MOBILE = process.env.NEXT_PUBLIC_MOBILE === '1'
 
 const FILE = 'opengym-state.json'
 

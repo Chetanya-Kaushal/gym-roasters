@@ -20,3 +20,8 @@ node_modules/
 CLAUDE.md
 AGENTS.md
 graphify-out/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts

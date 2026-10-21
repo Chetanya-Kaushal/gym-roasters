@@ -2,7 +2,7 @@
 
 openGym ships in two flavors from the same codebase:
 
-| | **Self-hosted** (this repo's default) | **Mobile app** (`VITE_MOBILE=1`) |
+| | **Self-hosted** (this repo's default) | **Mobile app** (`NEXT_PUBLIC_MOBILE=1`) |
 |---|---|---|
 | Runs | in any browser, against your own server | natively on iPhone / Android (Capacitor shell) |
 | Accounts | passkey sign-in, one profile per person | none — the phone *is* the account |
@@ -29,7 +29,7 @@ OS share sheet instead of a browser download.
 ```sh
 cd frontend
 npm install
-npm run build:mobile        # VITE_MOBILE build + `cap sync` into android/ and ios/
+npm run build:mobile        # NEXT_PUBLIC_MOBILE build + `cap sync` into android/ and ios/
 
 npx cap open android        # opens Android Studio → run on emulator or device
 npx cap open ios            # opens Xcode (Mac only) → set your signing team, then run
@@ -38,8 +38,8 @@ npx cap open ios            # opens Xcode (Mac only) → set your signing team, 
 `npm run build:mobile` bakes the CDN media base into the bundle and copies the web build
 into both native projects — re-run it after every web-code change before building natively.
 
-> **Heads-up:** after `build:mobile`, `frontend/dist` contains the *mobile* bundle.
-> Run a plain `npm run build` again before deploying `dist` to a server.
+> **Heads-up:** after `build:mobile`, `frontend/out` contains the *mobile* bundle.
+> Run a plain `npm run build` again before deploying `out` to a server.
 
 ## App icons & splash screens
 

@@ -1,7 +1,7 @@
 {
   "appId": "ch.duartesantos.opengym",
   "appName": "Gym Roasters",
-  "webDir": "dist",
+  "webDir": "out",
   "backgroundColor": "#0c0e12",
   "android": {
     "allowMixedContent": false

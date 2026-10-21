@@ -3,6 +3,7 @@
 // import.meta.glob entry), so the initial bundle stays English-only.
 // Exercise instructions come from separately generated packs in src/instr/ (one per
 // language, from the upstream dataset) — also lazy-loaded on language switch.
+// Explicit import() maps instead of a glob so any bundler (Next.js/Turbopack, Vite) splits them.
 import { useSyncExternalStore } from 'react'
 
 // UI languages. de/pt have no instruction pack upstream — instructions fall back to English.
@@ -17,8 +18,17 @@ const DATE_LOCALES = {
   pl: 'pl-PL', tr: 'tr-TR', ru: 'ru-RU', zh: 'zh-CN', ko: 'ko-KR', hi: 'hi-IN'
 }
 
-const localePacks = import.meta.glob('../locales/*.js')
-const instrPacks = import.meta.glob('../instr/*.js')
+const localePacks = {
+  de: () => import('../locales/de.js'), es: () => import('../locales/es.js'), fr: () => import('../locales/fr.js'),
+  it: () => import('../locales/it.js'), pt: () => import('../locales/pt.js'), pl: () => import('../locales/pl.js'),
+  tr: () => import('../locales/tr.js'), ru: () => import('../locales/ru.js'), zh: () => import('../locales/zh.js'),
+  ko: () => import('../locales/ko.js'), hi: () => import('../locales/hi.js')
+}
+const instrPacks = {
+  es: () => import('../instr/es.js'), fr: () => import('../instr/fr.js'), it: () => import('../instr/it.js'),
+  tr: () => import('../instr/tr.js'), ru: () => import('../instr/ru.js'), zh: () => import('../instr/zh.js'),
+  hi: () => import('../instr/hi.js'), pl: () => import('../instr/pl.js'), ko: () => import('../instr/ko.js')
+}
 
 let lang = 'en'
 let dict = {}
@@ -44,8 +54,8 @@ export async function setLang(l) {
   if (l === lang && version > 0) return
   lang = l
   try {
-    dict = l === 'en' ? {} : (await localePacks['../locales/' + l + '.js']()).default
-    instr = l === 'en' || !INSTR_LANGS.includes(l) ? null : (await instrPacks['../instr/' + l + '.js']()).default
+    dict = l === 'en' ? {} : (await localePacks[l]()).default
+    instr = l === 'en' || !INSTR_LANGS.includes(l) ? null : (await instrPacks[l]()).default
   } catch (e) { dict = {}; instr = null }
   notify()
 }
