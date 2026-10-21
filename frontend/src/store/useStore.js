@@ -25,7 +25,8 @@ export const DEF = {
   profile: null, food: {}, water: {}, myFoods: [],
   // Activity (views/You.jsx, lib/activity.js): steps & sleep keyed by ISO date, body
   // measurements, Move goal override, and which awards/celebrations were already shown.
-  steps: {}, sleep: {}, measures: [], moveGoal: null, awardsSeen: [], celebrated: null
+  steps: {}, sleep: {}, measures: [], moveGoal: null, awardsSeen: [], celebrated: null,
+  checkin: null
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 

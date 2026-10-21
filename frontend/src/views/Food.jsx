@@ -7,6 +7,7 @@ import { lastBW, effectiveRoutine } from '../lib/history.js'
 import { FOODS, PLATE_RULES, targetsOf, waterTargetOf, dayTotals, mealPlanOf } from '../lib/nutrition.js'
 import Icon from '../components/Icon.jsx'
 import { Button, NumberField, SearchField, TextField } from '../components/ui.jsx'
+import MealAI from '../components/MealAI.jsx'
 
 const LB = 2.20462
 
@@ -86,6 +87,8 @@ export default function Food() {
         <Meter label="Fat" have={tot.f} goal={tg.fat} unit="g" color="var(--purple)" />
       </> : <div className="row between"><b>{t('Eaten')}</b><span>{tot.kcal} kcal · {tot.p} g {t('protein')}</span></div>}
     </div>
+
+    <MealAI day={day} tg={tg} />
 
     <div className="card">
       <Meter label="Water" have={water} goal={waterGoal} unit="ml" color="var(--blue)" />

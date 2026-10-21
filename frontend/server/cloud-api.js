@@ -9,23 +9,33 @@ import {
   generateRegistrationOptions, verifyRegistrationResponse,
   generateAuthenticationOptions, verifyAuthenticationResponse
 } from '@simplewebauthn/server'
+import { generateText, Output } from 'ai'
+import { z } from 'zod'
 
 const RP_ID = process.env.RP_ID || 'gym-roasters.vercel.app'
 const ORIGIN = process.env.ORIGIN || 'https://' + RP_ID
 const RP_NAME = process.env.RP_NAME || 'Gym Roasters'
 const SESSION_DAYS = Math.max(1, +(process.env.SESSION_DAYS || 90) || 90)
 const MAX_STATE = 4 * 1024 * 1024   // Vercel Functions accept 4.5 MB request bodies
+const AI_DAILY = +(process.env.AI_DAILY_LIMIT || 40)
 
 let _sql = null
 const sql = () => (_sql ||= neon(process.env.DATABASE_URL))
 let ready = null
 // Tables are created on first use, so a fresh database needs no migration step.
+// Two cold-started instances can race on CREATE TABLE IF NOT EXISTS; Postgres then reports a
+// duplicate (23505 / 42P07) for the loser, which is harmless.
+const DDL = [
+  q => q`CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, name text NOT NULL, created timestamptz NOT NULL DEFAULT now(), sv int NOT NULL DEFAULT 0, disabled boolean NOT NULL DEFAULT false)`,
+  q => q`CREATE TABLE IF NOT EXISTS creds (id text PRIMARY KEY, user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE, public_key text NOT NULL, counter bigint NOT NULL DEFAULT 0, transports jsonb NOT NULL DEFAULT '[]')`,
+  q => q`CREATE TABLE IF NOT EXISTS states (user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, state jsonb NOT NULL, updated timestamptz NOT NULL DEFAULT now())`,
+  q => q`CREATE TABLE IF NOT EXISTS challenges (cid text PRIMARY KEY, data jsonb NOT NULL, exp bigint NOT NULL)`,
+  q => q`CREATE TABLE IF NOT EXISTS ai_usage (user_id text NOT NULL, day date NOT NULL, n int NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))`
+]
 const migrate = () => (ready ||= (async () => {
-  const q = sql()
-  await q`CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, name text NOT NULL, created timestamptz NOT NULL DEFAULT now(), sv int NOT NULL DEFAULT 0, disabled boolean NOT NULL DEFAULT false)`
-  await q`CREATE TABLE IF NOT EXISTS creds (id text PRIMARY KEY, user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE, public_key text NOT NULL, counter bigint NOT NULL DEFAULT 0, transports jsonb NOT NULL DEFAULT '[]')`
-  await q`CREATE TABLE IF NOT EXISTS states (user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, state jsonb NOT NULL, updated timestamptz NOT NULL DEFAULT now())`
-  await q`CREATE TABLE IF NOT EXISTS challenges (cid text PRIMARY KEY, data jsonb NOT NULL, exp bigint NOT NULL)`
+  for (const d of DDL) {
+    try { await d(sql()) } catch (e) { if (e.code !== '23505' && e.code !== '42P07') throw e }
+  }
 })().catch(e => { ready = null; throw e }))
 
 /* ---------- sessions: `<uid>:<expiry>:<version>` signed with HMAC (same scheme as api/server.js) ---------- */
@@ -77,7 +87,7 @@ const body = async req => { try { return await req.json() } catch { return {} } 
 const pub = u => ({ id: u.id, name: u.name, admin: false })
 
 const routes = {
-  'GET config': async () => json(200, { invite_only: false, push: false }),
+  'GET config': async () => json(200, { invite_only: false, push: false, foodAI: !!process.env.AI_GATEWAY_MODEL }),
 
   'GET me': async req => {
     const u = await readSession(req)
@@ -159,6 +169,58 @@ const routes = {
     return json(200, { state: r ? r.state : null })
   },
 
+  // AI meal analysis: a photo and/or a description in, estimated foods with calories and
+  // macros out. Signed-in only and capped per person per day, so the free AI Gateway credit
+  // can't be drained by one user or a script.
+  'POST food/analyze': async req => {
+    const u = await readSession(req)
+    if (!u) return json(401, { error: 'Sign in to use AI meal analysis' })
+    const model = process.env.AI_GATEWAY_MODEL
+    if (!model) return json(404, { error: 'not available on this server' })
+    const raw = await req.text()
+    if (raw.length > 2_500_000) return json(413, { error: 'photo too large' })
+    let b
+    try { b = JSON.parse(raw) } catch { return json(400, { error: 'bad json' }) }
+    const text = String(b.text || '').slice(0, 600)
+    const image = typeof b.image === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(b.image) ? b.image : null
+    if (!text && !image) return json(400, { error: 'add a photo or describe the meal' })
+    const [use] = await sql()`INSERT INTO ai_usage (user_id, day, n) VALUES (${u.id}, current_date, 1)
+      ON CONFLICT (user_id, day) DO UPDATE SET n = ai_usage.n + 1 RETURNING n`
+    if (use.n > AI_DAILY) return json(429, { error: `Daily limit of ${AI_DAILY} analyses reached — try again tomorrow` })
+    const item = z.object({
+      name: z.string().describe('food, in the language the user wrote in, or English'),
+      portion: z.string().describe('estimated amount, e.g. "1 cup (200 g)" or "2 rotis"'),
+      kcal: z.number(), protein: z.number(), carbs: z.number(), fat: z.number()
+    })
+    try {
+      const { output } = await generateText({
+        model,
+        output: Output.object({
+          schema: z.object({
+            items: z.array(item).max(15),
+            confidence: z.enum(['high', 'medium', 'low']),
+            note: z.string().describe('one short sentence: what was assumed about portions or cooking, or a tip')
+          })
+        }),
+        system: 'You are a registered-dietitian assistant. Estimate the nutrition of the meal the user shows or describes. ' +
+          'Identify each food and drink, estimate a realistic portion (use visible plate/hand/utensil size; assume typical home cooking oil when cooked), ' +
+          'and give calories (kcal) and grams of protein, carbohydrate and fat per item from standard food composition data (USDA, IFCT for Indian foods). ' +
+          'Use the stated amounts when the user gives them. If something is not food, return no items. Never invent a brand.',
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: text || 'Estimate the nutrition of this meal.' },
+          ...(image ? [{ type: 'file', mediaType: 'image', data: image.split(',')[1] }] : [])
+        ] }],
+        maxOutputTokens: 1200
+      })
+      const items = output.items.map(i => ({ ...i, kcal: Math.round(i.kcal), protein: +i.protein.toFixed(1), carbs: +i.carbs.toFixed(1), fat: +i.fat.toFixed(1) }))
+      return json(200, { items, confidence: output.confidence, note: output.note, left: AI_DAILY - use.n })
+    } catch (e) {
+      console.error('food analyze failed', e?.message)
+      const status = e?.statusCode || e?.status
+      return json(status === 429 ? 429 : 502, { error: status === 429 ? 'The AI is busy — try again in a minute' : 'Could not analyse this meal — try again or log it manually' })
+    }
+  },
+
   'PUT data': async req => {
     const u = await readSession(req)
     if (!u) return json(401, { error: 'not signed in' })
@@ -178,7 +240,7 @@ export async function handle(req, method, path) {
   const fn = routes[method + ' ' + path]
   if (!fn) return json(404, { error: 'not available on this server' })
   try {
-    await migrate()
+    if (path !== 'config') await migrate()
     return await fn(req)
   } catch (e) {
     console.error('api error', method, path, e)

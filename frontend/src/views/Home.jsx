@@ -14,6 +14,8 @@ import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { targetsOf, dayTotals, waterTargetOf } from '../lib/nutrition.js'
+import CheckIn, { checkinSlot } from '../components/CheckIn.jsx'
+import { useUI } from '../store/useUI.js'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
 // has nothing to say it renders nothing at all — and it only polls while Home is on screen.
@@ -79,6 +81,13 @@ export default function Home() {
   // S.profile, so this only ever fires once per profile.
   const fresh = !S.profile && !S.routines.length && !S.active
   useEffect(() => { if (fresh) nav('/start', { replace: true }) }, [fresh])
+  // Water & protein check-in, morning and (if still short) evening.
+  const slot = !fresh && !S.active ? checkinSlot(S) : null
+  useEffect(() => {
+    if (!slot) return
+    const id = setTimeout(() => useUI.getState().openSheet(close => <CheckIn slot={slot} close={close} />), 900)
+    return () => clearTimeout(id)
+  }, [slot])
 
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
