@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
@@ -13,6 +13,7 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
+import { targetsOf, dayTotals, waterTargetOf } from '../lib/nutrition.js'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
 // has nothing to say it renders nothing at all — and it only polls while Home is on screen.
@@ -39,6 +40,33 @@ function CoachCard({ nav }) {
   </div>
 }
 
+// Today's food & water at a glance; tapping opens the Food tab.
+function FoodCard({ S, nav }) {
+  const prof = S.profile && !S.profile.skipped ? S.profile : null
+  if (!prof) return null
+  const iso = todayISO()
+  const bw = lastBW(S)
+  const tg = targetsOf(prof, bw ? (S.unit === 'lb' ? bw.w / 2.20462 : bw.w) : prof.weightKg)
+  if (!tg) return null
+  const tot = dayTotals((S.food || {})[iso])
+  const water = (S.water || {})[iso] || 0
+  const wGoal = waterTargetOf(tg, !!effectiveRoutine(S, iso))
+  const cell = (v, goal, unit, label) => <div style={{ flex: 1, textAlign: 'center' }}>
+    <div style={{ fontSize: 20, fontWeight: 600 }}>{v}<span className="dim small">/{goal}{unit}</span></div>
+    <div className="lbl2 dim small">{t(label)}</div>
+  </div>
+  return <div className="card" onClick={() => nav('/food')} style={{ cursor: 'pointer' }}>
+    <div className="row between" style={{ marginBottom: 8 }}>
+      <h2 style={{ margin: 0 }}>{t('Today\'s nutrition')}</h2><Icon name="chevronRight" className="chev" />
+    </div>
+    <div className="row">
+      {cell(tot.kcal, tg.kcal, '', 'kcal')}
+      {cell(tot.p, tg.protein, 'g', 'Protein')}
+      {cell((water / 1000).toFixed(1), (wGoal / 1000).toFixed(1), 'L', 'Water')}
+    </div>
+  </div>
+}
+
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
   const nav = useNavigate()
@@ -47,6 +75,10 @@ export default function Home() {
   const config = useStore(s => s.config)
   const [weekOffset, setWeekOffset] = useState(0)
   const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
+  // First run: ask the setup questions before anything else. Answering or skipping sets
+  // S.profile, so this only ever fires once per profile.
+  const fresh = !S.profile && !S.routines.length && !S.active
+  useEffect(() => { if (fresh) nav('/start', { replace: true }) }, [fresh])
 
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
@@ -78,7 +110,7 @@ export default function Home() {
 
   return <div className="narrow">
     <div className="hdr">
-      <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+      <div><h1>{user ? t('Hi {0}', user.name) : 'Gym Roasters'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
     </div>
 
@@ -107,6 +139,8 @@ export default function Home() {
 
     {coachOn && <CoachCard nav={nav} />}
 
+    <FoodCard S={S} nav={nav} />
+
     {!S.routines.length && !S.active && (
       <div className="card">
         <div className="row" style={{ gap: 10, marginBottom: 6 }}>
@@ -114,11 +148,13 @@ export default function Home() {
           <div className="big" style={{ fontSize: 22 }}>{t('Welcome!')}</div>
         </div>
         <div className="muted small" style={{ marginBottom: 12 }}>{t('Set up your weekly routine to get going — or load a ready-made Push / Pull / Legs plan.')}</div>
+        <Button variant="primary" icon="sparkles" onClick={() => nav('/start')}>{t('Get my smart plan')}</Button>
+        <div style={{ height: 8 }} />
         {coachOn && <>
-          <Button variant="primary" icon="sparkles" onClick={() => nav(hasConsent(S) ? '/coach/intake' : '/coach')}>{t('Let the Coach build it')}</Button>
+          <Button icon="sparkles" onClick={() => nav(hasConsent(S) ? '/coach/intake' : '/coach')}>{t('Let the Coach build it')}</Button>
           <div style={{ height: 8 }} />
         </>}
-        <Button variant={coachOn ? 'plain' : 'primary'} icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (PPL)')}</Button>
+        <Button icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (PPL)')}</Button>
         <div style={{ height: 8 }} /><Button onClick={() => nav('/plan')}>{t('Build my own plan')}</Button>
       </div>
     )}

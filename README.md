@@ -1,3 +1,14 @@
+# Gym Roasters
+
+**Gym Roasters** is a fork of [openGym](https://github.com/DuarteSantos8/openGym) (AGPL v3) that adds a
+first-run *Smart plan*: it asks your sex, goal (lose weight, build lean muscle, tone), body
+measurements and training days, then builds a weekly workout plan with cardio, daily calorie /
+protein / water targets, a meal plan, and a food & water tracker. Try it at
+[gym-roasters.vercel.app](https://gym-roasters.vercel.app) — on iPhone, open it in Safari and tap
+Share → Add to Home Screen.
+
+---
+
 <div align="center">
 
 <img src="assets/banner.png" alt="openGym" width="720">
