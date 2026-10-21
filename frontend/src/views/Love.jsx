@@ -25,7 +25,13 @@ export default function Love({ onClose }) {
   const field = useRef(null)
   const big = useRef(null)
   const title = useRef(null)
-  const [play, setPlay] = useState(false)
+  // Starts playing muted as soon as the page opens (browsers only allow sound after a tap);
+  // the first tap anywhere turns the sound on through the YouTube player API.
+  const [play, setPlay] = useState(true)
+  const [muted, setMuted] = useState(true)
+  const frame = useRef(null)
+  const cmd = (func, args = []) => frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), 'https://www.youtube-nocookie.com')
+  const soundOn = () => { if (!play) { setMuted(false); setPlay(true); return } cmd('unMute'); cmd('setVolume', [100]); cmd('playVideo'); setMuted(false) }
 
   // A beating heart, a headline that writes itself, and hearts drifting up like they're floating
   // on warm air: rise with a slow sideways sway and a little spin, fading near the top.
@@ -86,6 +92,7 @@ export default function Love({ onClose }) {
 
   // Tap anywhere: a burst of hearts thrown out under real gravity.
   const burst = e => {
+    if (muted) soundOn()
     if (reducedMotion()) return
     const b = root.current.getBoundingClientRect()
     const x = (e.clientX ?? b.width / 2) - b.left, y = (e.clientY ?? b.height / 2) - b.top
@@ -144,9 +151,9 @@ export default function Love({ onClose }) {
       <div className="card" style={{ padding: 0, overflow: 'hidden', margin: '0 auto', maxWidth: 560 }} onClick={e => e.stopPropagation()}>
         {play
           ? <iframe title="Deewaniyat" width="100%" style={{ aspectRatio: '16/9', display: 'block', border: 0 }}
-            src={`https://www.youtube-nocookie.com/embed/${VIDEO}?autoplay=1&playsinline=1&rel=0`}
+            ref={frame} src={`https://www.youtube-nocookie.com/embed/${VIDEO}?autoplay=1&playsinline=1&rel=0&enablejsapi=1&mute=${muted ? 1 : 0}&origin=${encodeURIComponent(location.origin)}`}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
-          : <button onPointerDown={() => setPlay(true)} onClick={() => setPlay(true)} style={{ width: '100%', aspectRatio: '16/9', border: 0, cursor: 'pointer', color: '#fff', position: 'relative',
+          : <button onPointerDown={() => { setMuted(false); setPlay(true) }} onClick={() => { setMuted(false); setPlay(true) }} style={{ width: '100%', aspectRatio: '16/9', border: 0, cursor: 'pointer', color: '#fff', position: 'relative',
             background: `center/cover no-repeat url(https://i.ytimg.com/vi/${VIDEO}/mqdefault.jpg)` }} aria-label={t('Play Deewaniyat')}>
             <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent, rgba(0,0,0,.7))' }} />
             <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8, background: '#ff2e63', borderRadius: 999, padding: '12px 20px', fontWeight: 700 }}>
@@ -156,7 +163,8 @@ export default function Love({ onClose }) {
         <div className="row between" style={{ padding: '8px 12px' }}>
           <span className="small dim" style={{ textAlign: 'left' }}>Deewaniyat · Vishal Mishra · Ek Deewane Ki Deewaniyat</span>
           {/* removing the player is the one stop that works everywhere, iOS included */}
-          {play && <button className="tag" style={{ cursor: 'pointer', background: '#ff2e63', color: '#fff', flex: 'none' }} onClick={() => setPlay(false)}>
+          {play && muted && <button className="tag" style={{ cursor: 'pointer', background: '#38d0ff', color: '#000', flex: 'none', marginRight: 6 }} onClick={soundOn}>🔊 {t('Tap for sound')}</button>}
+          {play && <button className="tag" style={{ cursor: 'pointer', background: '#ff2e63', color: '#fff', flex: 'none' }} onClick={() => { setPlay(false); setMuted(true) }}>
             <Icon name="pause" /> {t('Stop song')}
           </button>}
         </div>
