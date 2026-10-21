@@ -14,5 +14,14 @@ export const viewport = {
 }
 
 export default function RootLayout({ children }) {
-  return <html lang="en"><body>{children}</body></html>
+  // Open connections to YouTube early so the welcome song starts fast on phones.
+  return <html lang="en">
+    <head>
+      <link rel="preconnect" href="https://www.youtube-nocookie.com" />
+      <link rel="preconnect" href="https://www.youtube.com" />
+      <link rel="preconnect" href="https://i.ytimg.com" />
+      <link rel="dns-prefetch" href="https://www.google.com" />
+    </head>
+    <body>{children}</body>
+  </html>
 }

@@ -13,7 +13,8 @@ gsap.registerPlugin(Physics2DPlugin, SplitText)
 // player on the privacy-enhanced domain — the song itself is not copied into the app.
 const VIDEO = 'Qo4IOTAbGAM'
 const COLORS = ['#ff4d6d', '#ff8fa3', '#ff2e63', '#ffb3c1', '#e5383b']
-const heartPath = 'M12 21s-7.5-4.6-9.6-9.2C.9 8.6 2.9 5 6.4 5c2 0 3.6 1.1 4.6 2.7C12 6.1 13.6 5 15.6 5 19.1 5 21.1 8.6 21.6 11.8 19.5 16.4 12 21 12 21Z'
+// Symmetric heart (both lobes mirror around x = 12), centred near (12, 12).
+const heartPath = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z'
 
 const Heart = ({ size, color }) => <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block' }}><path d={heartPath} fill={color} /></svg>
 
@@ -121,13 +122,14 @@ export default function Love({ onClose }) {
             <Heart size={14} color={COLORS[i % COLORS.length]} />
           </div>)}
         </div>
-        <svg className="outline" aria-hidden width="200" height="200" viewBox="0 0 24 24" style={{ position: 'absolute', left: 10, top: 0, overflow: 'visible' }}>
-          <path d={heartPath} fill="none" stroke="#ffb3c1" strokeWidth="0.35" strokeLinecap="round" transform="translate(12 12) scale(1.12) translate(-12 -12)" />
-        </svg>
-        <div ref={big} style={{ position: 'absolute', left: 35, top: 25, width: 150, height: 150, filter: 'drop-shadow(0 10px 30px rgba(255,46,99,.55))' }}>
-          <svg width="150" height="150" viewBox="0 0 24 24">
+        {/* filled heart and its self-drawing outline share one SVG, so they stay perfectly aligned */}
+        <div ref={big} style={{ position: 'absolute', left: 10, top: 0, width: 200, height: 200, filter: 'drop-shadow(0 10px 30px rgba(255,46,99,.55))' }}>
+          <svg width="200" height="200" viewBox="-1 -1 26 26" style={{ overflow: 'visible' }}>
             <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ff8fa3" /><stop offset="1" stopColor="#e5383b" /></linearGradient></defs>
-            <path d={heartPath} fill="url(#lg)" />
+            <g className="outline" transform="translate(12 12.2) scale(1.18) translate(-12 -12.2)">
+              <path d={heartPath} fill="none" stroke="#ffb3c1" strokeWidth="0.32" strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+            <path d={heartPath} fill="url(#lg)" transform="translate(12 12.2) scale(0.86) translate(-12 -12.2)" />
           </svg>
         </div>
       </div>
@@ -144,14 +146,20 @@ export default function Love({ onClose }) {
           ? <iframe title="Deewaniyat" width="100%" style={{ aspectRatio: '16/9', display: 'block', border: 0 }}
             src={`https://www.youtube-nocookie.com/embed/${VIDEO}?autoplay=1&playsinline=1&rel=0`}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
-          : <button onClick={() => setPlay(true)} style={{ width: '100%', aspectRatio: '16/9', border: 0, cursor: 'pointer', color: '#fff', position: 'relative',
-            background: `center/cover no-repeat url(https://i.ytimg.com/vi/${VIDEO}/hqdefault.jpg)` }} aria-label={t('Play Deewaniyat')}>
+          : <button onPointerDown={() => setPlay(true)} onClick={() => setPlay(true)} style={{ width: '100%', aspectRatio: '16/9', border: 0, cursor: 'pointer', color: '#fff', position: 'relative',
+            background: `center/cover no-repeat url(https://i.ytimg.com/vi/${VIDEO}/mqdefault.jpg)` }} aria-label={t('Play Deewaniyat')}>
             <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent, rgba(0,0,0,.7))' }} />
             <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8, background: '#ff2e63', borderRadius: 999, padding: '12px 20px', fontWeight: 700 }}>
               <Icon name="play" /> Deewaniyat
             </span>
           </button>}
-        <div className="small dim" style={{ padding: '8px 12px', textAlign: 'left' }}>Deewaniyat · Vishal Mishra · Ek Deewane Ki Deewaniyat</div>
+        <div className="row between" style={{ padding: '8px 12px' }}>
+          <span className="small dim" style={{ textAlign: 'left' }}>Deewaniyat · Vishal Mishra · Ek Deewane Ki Deewaniyat</span>
+          {/* removing the player is the one stop that works everywhere, iOS included */}
+          {play && <button className="tag" style={{ cursor: 'pointer', background: '#ff2e63', color: '#fff', flex: 'none' }} onClick={() => setPlay(false)}>
+            <Icon name="pause" /> {t('Stop song')}
+          </button>}
+        </div>
       </div>
     </div>
   </div>
