@@ -79,9 +79,9 @@ export default function You() {
         <h2 style={{ margin: 0 }}>{t('This week')}</h2>
         <span className="tag acc"><Icon name="flame" />{t('{0}-day streak', moveStreak)}</span>
       </div>
-      <div className="row between">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', justifyItems: 'center' }}>
         {week.map((d, i) => <div key={d.iso} style={{ textAlign: 'center' }}>
-          <Rings values={[d.move.p, d.exercise.p, d.hydrate.p]} size={38} delay={i * 0.05} />
+          <Rings values={[d.move.p, d.exercise.p, d.hydrate.p]} size={34} delay={i * 0.05} />
           <div className="small dim" style={{ marginTop: 4 }}>{new Date(d.iso + 'T12:00:00').toLocaleDateString(dateLocale(), { weekday: 'narrow' })}</div>
         </div>)}
       </div>
@@ -96,7 +96,7 @@ export default function You() {
       </div>
       <div className="row between" style={{ marginTop: 16 }}><b>{t('Sleep last night')}</b><span style={{ fontSize: 22, fontWeight: 700 }}>{sleep?.h ?? '—'} h</span></div>
       <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-        {[5, 6, 7, 8, 9].map(h => <motion.button key={h} {...tap} className={'chip' + (sleep?.h === h ? ' on' : '')} onClick={() => setSleep(h)}>{h} h</motion.button>)}
+        {[5, 6, 7, 8, 9].map(h => <motion.button key={h} {...tap} className={'chip' + (sleep?.h === h ? ' on' : '')} style={{ textTransform: 'none' }} onClick={() => setSleep(h)}>{h} h</motion.button>)}
       </div>
       <div className="dim small" style={{ marginTop: 8 }}>{t('Adults need 7–9 hours. Steps count toward your Move ring.')}</div>
     </div>

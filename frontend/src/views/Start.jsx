@@ -9,6 +9,8 @@ import { SEXES, GOALS, LEVELS, DAY_OPTIONS, buildPlan, cardioMinutes, PROGRESSIO
 import { ACTIVITY, DIETS, targetsOf, mealPlanOf } from '../lib/nutrition.js'
 import Icon from '../components/Icon.jsx'
 import { Button, NumberField, Segmented } from '../components/ui.jsx'
+import Hero3D from '../fx/Hero3D.jsx'
+import { TextReveal, Spotlight } from '../fx/showcase.jsx'
 
 /* First-run setup: who you are and what you want, then a workout plan and daily nutrition
    targets built from the answers (lib/smartplan.js, lib/nutrition.js). One topic per screen,
@@ -76,7 +78,8 @@ export default function Start() {
   const meals = tg ? mealPlanOf(tg, p.diet) : []
   const plan = key === 'result' ? buildPlan(p) : null
 
-  return <div className="narrow">
+  return <div className="narrow" style={{ position: 'relative' }}>
+    <Spotlight />
     <div className="hdr">
       <button className="iconbtn" onClick={() => step ? setStep(step - 1) : skip()} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 10 }}>
@@ -92,7 +95,9 @@ export default function Start() {
 
     <div className="card">
       {key === 'sex' && <>
-        <h2 style={{ marginTop: 0 }}>{t('What is your sex?')}</h2>
+        <Hero3D height={190} />
+        <TextReveal as="h2" style={{ marginTop: 4, fontSize: 26, color: 'var(--label)' }}>{t('Let’s build your plan')}</TextReveal>
+        <h2>{t('What is your sex?')}</h2>
         <div className="muted small" style={{ marginBottom: 10 }}>{t('Used for your calorie needs and to tailor the plan.')}</div>
         <Choice options={SEXES} value={p.sex} onPick={v => set({ sex: v })} />
       </>}

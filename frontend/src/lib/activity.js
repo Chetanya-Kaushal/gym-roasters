@@ -2,7 +2,8 @@
 // cardio, steps, water, food), so nothing new has to be tracked to fill them.
 //
 //  Move     — active calories: workouts by MET × body weight × time (Ainsworth et al.,
-//             Compendium of Physical Activities 2011/2024: resistance training ~5 MET, walking
+//             Compendium of Physical Activities 2011/2024: general resistance training
+//             incl. rests between sets 3.5 MET, walking
 //             with incline ~5, cycling 4–10 by speed, running ≈ speed in km/h) plus steps
 //             (~0.04 kcal per step at 70 kg).
 //  Exercise — minutes of training (workout duration, capped at 3 h a day).
@@ -37,7 +38,7 @@ export function workoutBurn(w, kg) {
     if (s.done && s.min > 0) { cardioMin += s.min; kcal += cardioMet(e.id, s.speed) * kg * s.min / 60 }
   }
   const minutes = Math.max(total, cardioMin)
-  kcal += 5 * kg * Math.max(0, minutes - cardioMin) / 60
+  kcal += 3.5 * kg * Math.max(0, minutes - cardioMin) / 60
   return { minutes: Math.round(minutes), kcal: Math.round(kcal) }
 }
 
