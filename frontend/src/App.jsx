@@ -37,6 +37,7 @@ import Timer from './views/Timer.jsx'
 import Programs from './views/Programs.jsx'
 import Build from './views/Build.jsx'
 import Social from './views/Social.jsx'
+import Fast from './views/Fast.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -100,6 +101,7 @@ function Shell() {
               <Route path="/programs" element={<Programs />} />
               <Route path="/build" element={<Build />} />
               <Route path="/social" element={<Social />} />
+              <Route path="/fast" element={<Fast />} />
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />

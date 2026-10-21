@@ -26,7 +26,9 @@ export const DEF = {
   // Activity (views/You.jsx, lib/activity.js): steps & sleep keyed by ISO date, body
   // measurements, Move goal override, and which awards/celebrations were already shown.
   steps: {}, sleep: {}, measures: [], moveGoal: null, awardsSeen: [], celebrated: null,
-  checkin: null
+  checkin: null,
+  // quick-logged workouts, ring goal overrides and pauses, fasting
+  activities: [], exerciseGoal: null, waterGoal: null, ringPause: [], fast: null, fasts: [], fastPlan: null
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 

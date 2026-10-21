@@ -15,6 +15,8 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { targetsOf, dayTotals, waterTargetOf } from '../lib/nutrition.js'
 import CheckIn, { checkinSlot } from '../components/CheckIn.jsx'
+import BodyMap from '../components/BodyMap.jsx'
+import { recoveryOf } from '../lib/recovery.js'
 import { useUI } from '../store/useUI.js'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
@@ -39,6 +41,23 @@ function CoachCard({ nav }) {
       </div>
       {ready ? <span className="tag acc">{t('Review')}</span> : <Icon name="chevronRight" className="chev" />}
     </div>
+  </div>
+}
+
+// Muscle recovery from the last few days of training.
+function RecoveryCard({ S, nav }) {
+  if (!(S.workouts || []).length) return null
+  const r = recoveryOf(S)
+  return <div className="card">
+    <div className="row between" style={{ marginBottom: 6 }}>
+      <h2 style={{ margin: 0 }}>{t('Muscle recovery')}</h2>
+      <button className="tag acc" style={{ cursor: 'pointer' }} onClick={() => nav('/build')}>{t('Train fresh muscles')}</button>
+    </div>
+    {r.sore.length ? <>
+      <BodyMap load={r.fatigue} body={S.body} />
+      <div className="mchips">{r.sore.slice(0, 6).map(m => <span key={m} className="mchip">{t(r.names[m])} {r.ready[m]}%</span>)}</div>
+      <div className="small dim" style={{ marginTop: 6 }}>{t('Shaded muscles are still recovering — give them 48–72 h after hard sessions.')}</div>
+    </> : <div className="small muted">{t('All muscles are recovered — a great day for a full session.')}</div>}
   </div>
 }
 
@@ -149,6 +168,7 @@ export default function Home() {
     {coachOn && <CoachCard nav={nav} />}
 
     <FoodCard S={S} nav={nav} />
+    <RecoveryCard S={S} nav={nav} />
 
     {!S.routines.length && !S.active && (
       <div className="card">

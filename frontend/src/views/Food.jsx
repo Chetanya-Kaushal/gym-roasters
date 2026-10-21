@@ -8,6 +8,7 @@ import { FOODS, PLATE_RULES, targetsOf, waterTargetOf, dayTotals, mealPlanOf } f
 import Icon from '../components/Icon.jsx'
 import { Button, NumberField, SearchField, TextField } from '../components/ui.jsx'
 import MealAI from '../components/MealAI.jsx'
+import { adaptiveTdee } from '../lib/adaptive.js'
 
 const LB = 2.20462
 
@@ -70,6 +71,7 @@ export default function Food() {
   return <div className="narrow">
     <div className="hdr">
       <div style={{ flex: 1 }}><h1>{t('Nutrition')}</h1><div className="sub">{isToday ? t('Today') : fmtDate(day)}</div></div>
+      <button className="iconbtn" onClick={() => nav('/fast')} aria-label={t('Fasting')} title={t('Fasting')} style={S.fast ? { color: 'var(--acc)' } : undefined}><Icon name="clock" /></button>
       <button className="iconbtn" onClick={() => shift(-1)} aria-label={t('Previous day')}><Icon name="chevronLeft" /></button>
       <button className="iconbtn" onClick={() => shift(1)} disabled={isToday} aria-label={t('Next day')}><Icon name="chevronRight" /></button>
     </div>
@@ -143,6 +145,8 @@ export default function Food() {
       </div>) : !adding && <div className="muted small">{t('Nothing logged yet.')}</div>}
     </div>
 
+    {tg && <SmartTarget S={S} tg={tg} update={update} />}
+
     {tg && <div className="card">
       <div className="row between" onClick={() => setShowDiet(!showDiet)} style={{ cursor: 'pointer' }}>
         <h2 style={{ margin: 0 }}>{t('Your diet plan')}</h2>
@@ -160,5 +164,24 @@ export default function Food() {
       </>}
     </div>}
     <div style={{ height: 20 }} />
+  </div>
+}
+
+// Adaptive target: what you really burn, from 2–3 weeks of food logs and weigh-ins.
+function SmartTarget({ S, tg, update }) {
+  const a = adaptiveTdee(S)
+  const using = S.profile?.tdee > 0
+  return <div className="card">
+    <div className="row between"><h2 style={{ margin: 0 }}>{t('Smart calorie target')}</h2>{using && <span className="tag acc">{t('On')}</span>}</div>
+    {!a.ready ? <div className="small muted" style={{ marginTop: 6 }}>
+      {t('Log food on {0} days and weigh in {1} times over 3 weeks, and the app will learn what you really burn — {2}/{0} days and {3}/{1} weigh-ins so far.', a.need.foodDays, a.need.weighIns, a.foodDays, a.weighIns)}
+    </div> : <>
+      <div className="small muted" style={{ margin: '6px 0 10px' }}>
+        {t('You ate {0} kcal a day on average and your weight trend is {1} kg/week, so you really burn about {2} kcal a day. The formula estimate was {3}.', a.avgIn, (a.weeklyKg > 0 ? '+' : '') + a.weeklyKg, a.tdee, tg.tdee)}
+      </div>
+      {using
+        ? <Button size="sm" onClick={() => update(s => { s.profile = { ...s.profile, tdee: null } })}>{t('Go back to the formula')}</Button>
+        : <Button size="sm" variant="primary" onClick={() => update(s => { s.profile = { ...s.profile, tdee: a.tdee } })}>{t('Use {0} kcal as my maintenance', a.tdee)}</Button>}
+    </>}
   </div>
 }

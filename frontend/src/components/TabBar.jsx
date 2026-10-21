@@ -15,7 +15,7 @@ export default function TabBar({ onStart }) {
   const cur = loc.pathname.split('/')[1] || 'home'
   // the You tab is the hub for activity, awards, body, timers, stats and the exercise library
   const YOU = ['you', 'awards', 'body', 'timer', 'stats', 'history', 'library', 'social']
-  const on = k => cur === k || (k === 'you' && YOU.includes(cur)) || (k === 'plan' && ['programs', 'build'].includes(cur)) || (cur === 'settings' && k === 'home')
+  const on = k => cur === k || (k === 'you' && YOU.includes(cur)) || (k === 'plan' && ['programs', 'build'].includes(cur)) || (k === 'food' && cur === 'fast') || (cur === 'settings' && k === 'home')
 
   const startWorkout = () => {
     if (!S.active) {

@@ -50,7 +50,8 @@ export function targetsOf(p, weightKg) {
   const cls = bmiClass(bmi)
   const bmr = bmrOf({ ...p, weightKg: w })
   const mult = (ACTIVITY.find(a => a[0] === p.activity) || ACTIVITY[1])[2]
-  const tdee = bmr * mult
+  // p.tdee: the adaptive estimate from logged intake and weight trend (adaptive.js), once applied
+  const tdee = p.tdee > 0 ? p.tdee : bmr * mult
   const notes = []
   let delta = 0
   if (p.goal === 'fatloss') {

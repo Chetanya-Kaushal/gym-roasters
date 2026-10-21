@@ -51,3 +51,31 @@ describe('apple-style extras', async () => {
     expect(monthlyChallenge(S).goal).toBe(20)
   })
 })
+
+describe('adaptive TDEE', async () => {
+  const { adaptiveTdee } = await import('./adaptive.js')
+  it('eating 2000 kcal while losing ~0.5 kg/week means a burn of ~2550', async () => {
+    const S = { unit: 'kg', food: {}, bodyweight: [] }
+    const days = (await import('./activity.js')).lastDays(21)
+    days.forEach((d, i) => {
+      S.food[d] = [{ kcal: 2000, p: 0, c: 0, f: 0 }]
+      if (i % 3 === 0) S.bodyweight.push({ d, w: 80 - (i * 0.5) / 7 })
+    })
+    const r = adaptiveTdee(S)
+    expect(r.ready).toBe(true)
+    expect(r.tdee).toBeGreaterThan(2350)
+    expect(r.tdee).toBeLessThan(2650)
+  })
+  it('needs enough data', async () => {
+    expect((await import('./adaptive.js')).adaptiveTdee({ food: {}, bodyweight: [] }).ready).toBe(false)
+  })
+})
+
+describe('recovery', async () => {
+  const { recoveryOf } = await import('./recovery.js')
+  it('chest is fatigued right after bench, mostly ready 3 days later', () => {
+    const w = { d: '2026-01-01', end: 1e12, entries: [{ id: '0025', sets: Array(10).fill({ done: true, w: 60, r: 8 }) }] }
+    expect(recoveryOf({ workouts: [w] }, 1e12).ready.chest).toBe(0)
+    expect(recoveryOf({ workouts: [w] }, 1e12 + 72 * 3600000).ready.chest).toBeGreaterThan(85)
+  })
+})
