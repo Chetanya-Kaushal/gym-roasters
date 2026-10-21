@@ -918,3 +918,8 @@ h4.sec{
 .shine{position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%);animation:shine 3.2s ease-in-out infinite}
 @keyframes shine{0%{transform:translateX(-60%)}55%,100%{transform:translateX(60%)}}
 @media (prefers-reduced-motion: reduce){.shine{animation:none;display:none}}
+
+/* the heart button on Home beats gently */
+.heartbtn .icn{animation:heartbeat 1.6s ease-in-out infinite}
+@keyframes heartbeat{0%,40%,100%{transform:scale(1)}10%{transform:scale(1.22)}20%{transform:scale(.95)}30%{transform:scale(1.15)}}
+@media (prefers-reduced-motion: reduce){.heartbtn .icn{animation:none}}

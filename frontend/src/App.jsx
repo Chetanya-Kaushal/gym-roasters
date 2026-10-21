@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
@@ -38,6 +38,7 @@ import Programs from './views/Programs.jsx'
 import Build from './views/Build.jsx'
 import Social from './views/Social.jsx'
 import Fast from './views/Fast.jsx'
+import Love from './views/Love.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -65,6 +66,9 @@ function Shell() {
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const authed = user || isGuest
+  // The "for you" intro greets everyone each time the app is opened, before anything else.
+  const [intro, setIntro] = useState(true)
+  if (intro) return <div id="app" style={{ paddingBottom: 0 }}><Love onClose={() => setIntro(false)} /></div>
   if (!ready && !authed) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
@@ -102,6 +106,7 @@ function Shell() {
               <Route path="/build" element={<Build />} />
               <Route path="/social" element={<Social />} />
               <Route path="/fast" element={<Fast />} />
+              <Route path="/love" element={<Love />} />
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />
