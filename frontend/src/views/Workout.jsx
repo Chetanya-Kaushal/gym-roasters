@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
-import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
+import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, defaultConfig, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, swapSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
@@ -51,6 +51,27 @@ function Elapsed({ start }) {
     tick(); const iv = setInterval(tick, 1000); return () => clearInterval(iv)
   }, [start])
   return <span>{t}</span>
+}
+
+/* ---------- swap an exercise in the running session for an alternative ----------
+   Sets already logged stay with the exercise they were done on: the old entry keeps its done
+   sets, and the alternative takes over the remaining ones right after it. */
+function swapEntry(idx, alt) {
+  useStore.getState().update(s => {
+    const A = s.active, en = A.entries[idx]
+    const done = en.sets.filter(x => x.done).length
+    const n = Math.max(1, en.sets.length - done)
+    const sameMode = modeOf({ id: alt.id }) === modeOf({ ...(en.target || {}), id: en.id })
+    const cfg = { ...(sameMode ? en.target : defaultConfig(alt.id)), sets: n }
+    const full = { ...cfg, id: alt.id }
+    const plan = nextPrescription(s, full, s.routines.find(r => r.id === A.routineId))
+    const next = { id: alt.id, target: cfg, plan, sets: applyPrescription(buildSets(s, full), plan) }
+    if (en.sg) next.sg = en.sg
+    if (!done) { A.entries[idx] = next; return }
+    en.sets = en.sets.filter(x => x.done)
+    A.entries.splice(idx + 1, 0, next)
+    A.cur = idx + 1
+  })
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
@@ -102,7 +123,10 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
       <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ex.n}</div>
-      <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      <div className="row" style={{ gap: 6, flex: 'none' }}>
+        <button className="iconbtn" aria-label={t('Swap exercise')} title={t('Swap exercise')} onClick={() => swapSheet(ex, alt => swapEntry(entryIdx, alt))}><Icon name="shuffle" /></button>
+        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      </div>
     </div>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
       {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}

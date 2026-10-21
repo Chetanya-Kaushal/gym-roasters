@@ -20,6 +20,7 @@ import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-sha
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
+import { alternativesOf } from './lib/alternatives.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -454,6 +455,26 @@ function ExercisePicker({ onPick, close }) {
   </>
 }
 export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker onPick={onPick} close={close} />)
+
+/* ============================ swap for an alternative ============================ */
+function SwapPicker({ ex, onPick, close }) {
+  const alts = alternativesOf(ex.id)
+  const pick = e => { close(); onPick(e) }
+  return <>
+    <h3>{t('Swap exercise')}</h3>
+    <div className="small dim" style={{ marginBottom: 10 }}>{t('Same muscles, different kit — instead of {0}.', ex.n)}</div>
+    <div className="list">
+      {alts.map(e => <div key={e.id} className="item" onClick={() => pick(e)}>
+        <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{e.n}</div><div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
+        <Icon name="shuffle" className="chev" />
+      </div>)}
+      {!alts.length && <div className="empty">{t('No close alternatives in the library.')}</div>}
+    </div>
+    <div style={{ height: 10 }} />
+    <Button icon="magnifier" onClick={() => { close(); exercisePicker(e => { ui().closeAll(); onPick(e) }) }}>{t('Pick any exercise')}</Button>
+  </>
+}
+export const swapSheet = (ex, onPick) => ui().openSheet(close => <SwapPicker ex={ex} onPick={onPick} close={close} />)
 
 /* ============================ exercise config ============================ */
 // Progression settings for one exercise (issue #17). Shown inside the config sheet because

@@ -70,3 +70,22 @@ describe('nutrition', () => {
     expect(dayTotals([{ ...egg, q: 3 }]).p).toBe(19)
   })
 })
+
+describe('alternatives', async () => {
+  const { alternativesOf } = await import('./alternatives.js')
+  it('every smart-plan exercise has at least 2 alternatives on the same muscle group', () => {
+    const ids = new Set()
+    for (const [goal] of GOALS) for (const days of DAY_OPTIONS) for (const level of ['beginner', 'intermediate']) for (const sex of ['male', 'female'])
+      buildPlan({ sex, goal, level, days }).routines.forEach(r => r.ex.forEach(e => ids.add(e.id)))
+    ids.forEach(id => {
+      const alts = alternativesOf(id)
+      expect(alts.length, id).toBeGreaterThanOrEqual(2)
+      expect(alts.some(a => a.id === id)).toBe(false)
+    })
+  })
+  it('falls back to same-target library exercises', () => {
+    const alts = alternativesOf('0001')   // 3/4 sit-up, not in a curated group
+    expect(alts.length).toBeGreaterThan(0)
+    alts.forEach(a => expect(a.tg).toBe('abs'))
+  })
+})
