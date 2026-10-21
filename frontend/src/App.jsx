@@ -39,6 +39,7 @@ import Build from './views/Build.jsx'
 import Social from './views/Social.jsx'
 import Fast from './views/Fast.jsx'
 import Love from './views/Love.jsx'
+import Privacy from './views/Privacy.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -83,7 +84,7 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {!authed ? <Login /> : (
+          {!authed ? (loc.pathname === '/privacy' ? <Privacy /> : <Login />) : (
             <Routes>
               <Route path="/home" element={<Home />} />
               <Route path="/plan" element={<Plan />} />
@@ -107,6 +108,7 @@ function Shell() {
               <Route path="/social" element={<Social />} />
               <Route path="/fast" element={<Fast />} />
               <Route path="/love" element={<Love />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />

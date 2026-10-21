@@ -69,6 +69,16 @@ export default function Settings() {
     },
   })
 
+  const deleteAccount = () => confirmSheet({
+    title: t('Delete your account?'),
+    message: t('This permanently deletes your profile and everything saved with it — plan, workouts, food, measurements, friends — from the server and this device. It cannot be undone.'),
+    confirmText: t('Delete account'), danger: true,
+    onConfirm: async () => {
+      try { await useStore.getState().deleteAccount(); nav('/home'); toast(t('Your account was deleted')) }
+      catch (e) { toast(t('Could not delete the account — nothing was removed.')) }
+    },
+  })
+
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/home')} aria-label={t('Home')}><Icon name="chevronLeft" /></button>
@@ -92,6 +102,7 @@ export default function Settings() {
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
         <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
+        {config?.accountDelete && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Removes your profile and all its data')} danger onClick={deleteAccount} />}
       </> : webauthnOK() ? <>
         <Row icon="sparkles" iconTint="var(--acc)" title={t('Create passkey profile')} subtitle={t('Keeps your data safe and separate per person.')} accessory="chevron" onClick={registerHere} />
         <Row icon="person" iconTint="var(--blue)" title={t('Sign in with passkey')} accessory="chevron" onClick={signInHere} />
@@ -211,6 +222,7 @@ export default function Settings() {
 
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
       Gym Roasters · based on openGym by Duarte Santos · {t("free & open source (AGPL v3)")}<br />
+      <a href="#/privacy">{t('Privacy')}</a> · 
       <a href={REPO} target="_blank" rel="noopener">source code</a> · <a href="https://github.com/DuarteSantos8/openGym" target="_blank" rel="noopener">original</a> · exercise data: hasaneyldrm/exercises-dataset (CC)
     </div>
   </div>

@@ -148,6 +148,13 @@ export const useStore = create((set, get) => {
     // where a normal signOut leaves it. Unlike signOut the request is NOT swallowed: if it fails
     // the sessions elsewhere are all still valid, and wiping this device's copy of the data
     // would sign the user out of the one place the bump didn't reach. Caller reports the error.
+    // Hosted app only: deletes the account and all its saved data on the server, then this
+    // device's copy. Throws (and keeps everything) if the server refuses.
+    async deleteAccount() {
+      await api('/api/account/delete', { method: 'POST', body: '{}' })
+      clearLocalSession()
+    },
+
     async signOutAll() {
       await get().pushState()   // never throws — stores gym_dirty and moves on when offline
       await api('/api/logout/all', { method: 'POST', body: '{}' })

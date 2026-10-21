@@ -95,7 +95,7 @@ const body = async req => { try { return await req.json() } catch { return {} } 
 const pub = u => ({ id: u.id, name: u.name, admin: false })
 
 const routes = {
-  'GET config': async () => json(200, { invite_only: false, push: false, foodAI: !!process.env.AI_GATEWAY_MODEL }),
+  'GET config': async () => json(200, { invite_only: false, push: false, foodAI: !!process.env.AI_GATEWAY_MODEL, accountDelete: true }),
 
   'GET me': async req => {
     const u = await readSession(req)
@@ -163,6 +163,15 @@ const routes = {
   'POST logout': async () => json(200, { ok: true }, clearCookie),
 
   // Bumps the session version: every cookie issued for this person stops working everywhere.
+  // Deletes the account and everything stored for it (passkeys, saved state, friendships,
+  // competitions — all cascade from users; AI usage counters are removed explicitly).
+  'POST account/delete': async req => {
+    const u = await readSession(req)
+    if (!u) return json(401, { error: 'not signed in' })
+    await sql().transaction(q => [q`DELETE FROM ai_usage WHERE user_id = ${u.id}`, q`DELETE FROM users WHERE id = ${u.id}`])
+    return json(200, { ok: true }, clearCookie)
+  },
+
   'POST logout/all': async req => {
     const u = await readSession(req)
     if (!u) return json(401, { error: 'not signed in' })
