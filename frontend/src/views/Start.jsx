@@ -166,6 +166,7 @@ export default function Start() {
         ? <Button variant="primary" style={{ flex: 1 }} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('Next')}</Button>
         : <Button variant="primary" style={{ flex: 1 }} icon="sparkles" onClick={apply}>{t('Start my plan')}</Button>}
     </div>
+    {key === 'result' && <Button style={{ marginTop: 10 }} onClick={() => { update(s => { s.profile = { ...p, weightKg: Math.round(weightKg * 10) / 10 }; s.body = p.sex }); nav('/programs') }}>{t('Or choose from 12 programs')}</Button>}
     {key === 'body' && !tg && <div className="dim small" style={{ textAlign: 'center', marginTop: 10 }}>{t('Enter age, height and weight to continue.')}</div>}
     <div style={{ height: 20 }} />
   </div>

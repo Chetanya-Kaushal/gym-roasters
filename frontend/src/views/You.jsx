@@ -47,6 +47,8 @@ export default function You() {
     ['trophy', 'Awards', `${won}/${awards.length}`, '/awards'],
     ['scale', 'Body & sleep', t('Measurements, photos'), '/body'],
     ['timer', 'Timers', t('HIIT, warm-up, stretch'), '/timer'],
+    ['sparkles', 'Programs', t('12 expert plans'), '/programs'],
+    ['figureStrength', 'Body-part workout', t('Pick muscles, go'), '/build'],
     ['chart', 'Stats', t('Charts & records'), '/stats'],
     ['list', 'Exercises', t('1,324 with demos'), '/library'],
     ['upload', 'Share my day', t('Image for your story'), null]

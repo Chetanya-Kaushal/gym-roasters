@@ -10,7 +10,7 @@ describe('buildPlan', () => {
       // every exercise exists in the library
       plan.routines.forEach(r => r.ex.forEach(e => expect(EXIDX[e.id], e.id).toBeTruthy()))
       // the requested number of gym days, every scheduled id resolves
-      const gym = Object.values(plan.week).filter(id => plan.routines.find(r => r.id === id).name !== 'Cardio + Core')
+      const gym = Object.values(plan.week).filter(id => !plan.routines.find(r => r.id === id).name.includes('Cardio') && !plan.routines.find(r => r.id === id).name.includes('Intervals'))
       expect(gym.length).toBe(days)
       // chest and back each get a meaningful weekly dose
       const ws = weeklySets(plan)

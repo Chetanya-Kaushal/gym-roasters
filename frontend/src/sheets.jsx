@@ -21,6 +21,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { alternativesOf } from './lib/alternatives.js'
+import { platesFor } from './lib/blocks.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -474,6 +475,33 @@ function SwapPicker({ ex, onPick, close }) {
     <Button icon="magnifier" onClick={() => { close(); exercisePicker(e => { ui().closeAll(); onPick(e) }) }}>{t('Pick any exercise')}</Button>
   </>
 }
+function PlateCalc({ initial, unit, close }) {
+  const [w, setW] = useState(initial || (unit === 'lb' ? 135 : 60))
+  const r = platesFor(w, unit)
+  const step = unit === 'lb' ? 5 : 2.5
+  return <>
+    <h3>{t('Plate calculator')}</h3>
+    <div className="row between" style={{ margin: '6px 0 14px' }}>
+      <Button size="sm" onClick={() => setW(v => Math.max(0, v - step))}>−{step}</Button>
+      <div style={{ fontSize: 34, fontWeight: 700 }}>{fmtNum(w)} {unit}</div>
+      <Button size="sm" onClick={() => setW(v => v + step)}>+{step}</Button>
+    </div>
+    {r ? <>
+      <div className="small dim" style={{ textAlign: 'center', marginBottom: 10 }}>{t('Bar {0} {1} · each side:', r.bar, unit)}</div>
+      <div className="row" style={{ justifyContent: 'center', gap: 6, flexWrap: 'wrap', minHeight: 70, alignItems: 'center' }}>
+        {r.perSide.length ? r.perSide.map((p, i) => <div key={i} style={{
+          height: 30 + Math.min(40, p * (unit === 'lb' ? 0.9 : 2)), width: 22, borderRadius: 5, background: 'var(--acc)', color: 'var(--on-acc)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, writingMode: 'vertical-rl'
+        }}>{p}</div>) : <span className="dim">{t('Just the bar')}</span>}
+      </div>
+      {r.left > 0 && <div className="small" style={{ textAlign: 'center', color: 'var(--yellow)' }}>{t('{0} {1} can’t be loaded with standard plates', r.left, unit)}</div>}
+    </> : <div className="dim" style={{ textAlign: 'center' }}>{t('Lighter than the bar')}</div>}
+    <div style={{ height: 12 }} />
+    <Button onClick={close}>{t('Done')}</Button>
+  </>
+}
+export const plateSheet = (w, unit) => ui().openSheet(close => <PlateCalc initial={w} unit={unit} close={close} />)
+
 export const swapSheet = (ex, onPick) => ui().openSheet(close => <SwapPicker ex={ex} onPick={onPick} close={close} />)
 
 /* ============================ exercise config ============================ */

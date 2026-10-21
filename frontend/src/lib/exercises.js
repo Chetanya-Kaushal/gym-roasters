@@ -3,7 +3,8 @@ import { t } from './i18n.js'
 
 export { EXDB }
 export const EXIDX = {}
-EXDB.forEach(e => { EXIDX[e.id] = e })
+// The dataset tags some names with the model's sex ("jack jump (male)") — not part of the exercise.
+EXDB.forEach(e => { e.n = e.n.replace(/\s*\((?:male|female)\)/g, ''); EXIDX[e.id] = e })
 export const BODYPARTS = [...new Set(EXDB.map(e => e.bp))].sort()
 
 // Equipment options present in a given list of exercises, most common first (issue #6).

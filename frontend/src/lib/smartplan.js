@@ -12,6 +12,7 @@
 //  - Fat loss / "toning": no spot reduction; keep lifting to hold on to muscle in a deficit and
 //    add cardio toward the WHO's 150–300 min/week of moderate activity.
 import { uid } from './format.js'
+import { warmupFor, CARDIO, BIKE } from './blocks.js'
 
 export const SEXES = [['male', 'Male'], ['female', 'Female']]
 export const GOALS = [
@@ -24,7 +25,7 @@ export const DAY_OPTIONS = [3, 4, 5]
 
 // slot -> [beginner exercise id, intermediate exercise id, role]. 'c' = compound, 'a' = accessory.
 // Beginners get machine/dumbbell versions that are easier to learn and to load safely.
-const SLOT = {
+export const SLOT = {
   squat:    ['1760', '0043', 'c'],  // dumbbell goblet squat | barbell full squat
   hinge:    ['1459', '0085', 'c'],  // dumbbell | barbell romanian deadlift
   legpress: ['0739', '0739', 'c'],  // sled 45° leg press
@@ -83,8 +84,6 @@ const RX = {
   fatloss: { reps: { c: [12, 10], a: [15, 15] }, sets: { c: [3, 3], a: [2, 3] }, week: 180, day: 40, allDays: true },
   tone:    { reps: { c: [12, 12], a: [15, 15] }, sets: { c: [3, 3], a: [2, 3] }, week: 150, day: 30, allDays: true }
 }
-const INCLINE_WALK = '3666'
-const BIKE = '0798'
 
 export function buildPlan({ sex, goal, level, days }) {
   const rx = RX[goal] || RX.muscle
@@ -103,19 +102,22 @@ export function buildPlan({ sex, goal, level, days }) {
   for (const [key, wd] of split.days) {
     const d = DAYS[key]
     const slots = sex === 'female' ? [...d.s, ...d.f] : d.s
-    const ex = slots.map(entry)
-    if (finisher) ex.push({ id: INCLINE_WALK, sets: 1, min: finisher, speed: 5 })
-    const r = { id: uid(), name: d.name, emoji: d.emoji, ex, smart: true }
+    const focus = /^full/.test(key) ? 'full' : /^(upper|push|pull)/.test(key) ? 'upper' : 'lower'
+    const ex = [...warmupFor(focus), ...slots.map(entry)]
+    if (finisher) ex.push(...CARDIO.finisher(finisher))
+    const r = { id: uid(), name: d.name, emoji: d.emoji, ex, smart: true, prog: 'double' }
     routines.push(r); week[wd] = r.id
   }
-  if (cdays.length) {
+  // Dedicated cardio days: Zone 2 steady sessions, and for fat loss one interval day too
+  // (similar fitness gains in less time — Milanović 2015).
+  cdays.forEach((wd, i) => {
+    const intervals = goal === 'fatloss' && i === cdays.length - 1 && cdays.length > 1
     const r = {
-      id: uid(), name: 'Cardio + Core', emoji: 'figureRun', smart: true,
-      ex: [{ id: BIKE, sets: 1, min: rx.day, speed: 18 }, { ...entry('core'), sets: 3 }]
+      id: uid(), name: intervals ? 'Intervals + Core' : 'Zone 2 Cardio + Core', emoji: 'figureRun', smart: true,
+      ex: [...warmupFor('cardio'), ...(intervals ? CARDIO.intervals(8, 30) : CARDIO.zone2(rx.day, i % 2 ? BIKE : undefined)), { ...entry('core'), sets: 3 }]
     }
-    routines.push(r)
-    cdays.forEach(wd => { week[wd] = r.id })
-  }
+    routines.push(r); week[wd] = r.id
+  })
   return { routines, week }
 }
 

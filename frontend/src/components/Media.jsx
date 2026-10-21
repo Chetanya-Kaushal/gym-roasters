@@ -33,7 +33,8 @@ export default function Media({ ex, id, compact, minimizable }) {
   )
 }
 
-export function Thumb({ ex }) {
+// `animated` plays the demo in place of the still frame (plan previews).
+export function Thumb({ ex, animated }) {
   if (!ex.img) return <div className="thumb thumb-x"><Icon name="dumbbell" /></div>
-  return <img className="thumb" loading="lazy" decoding="async" src={imgSrc(ex)} alt="" />
+  return <img className="thumb" loading="lazy" decoding="async" src={animated && ex.gif ? gifSrc(ex) : imgSrc(ex)} alt="" />
 }

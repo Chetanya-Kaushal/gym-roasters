@@ -9,11 +9,13 @@ import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, swapSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, swapSheet, plateSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
+import { exLine } from '../lib/history.js'
+import { warmupSets } from '../lib/blocks.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -52,6 +54,9 @@ function Elapsed({ start }) {
   }, [start])
   return <span>{t}</span>
 }
+
+// Index of the first non-warm-up exercise — where ramp-up sets are suggested.
+const firstWorkIdx = A => A.entries.findIndex(e => !e.target?.wu && modeOf({ ...(e.target || {}), id: e.id }) === 'reps')
 
 /* ---------- swap an exercise in the running session for an alternative ----------
    Sets already logged stay with the exercise they were done on: the old entry keeps its done
@@ -128,7 +133,18 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
         <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
       </div>
     </div>
+    {/* the prescription, always visible: sets × reps (or time), rest, and the coaching note */}
+    {entry.target && <div className="small" style={{ marginBottom: 8, fontWeight: 600, color: 'var(--acc)' }}>
+      {t('Target')}: {exLine(entry.target, S.unit)}{mode === 'reps' && entry.target.reps ? ' ' + t('reps') : ''}
+      {!cardio && <span className="dim" style={{ fontWeight: 400 }}> · {t('rest {0} s', entry.target.rest || S.restSec)}</span>}
+      {entry.target.note && <div className="dim" style={{ fontWeight: 400 }}>{t(entry.target.note)}</div>}
+    </div>}
+    {mode === 'reps' && !entry.target?.wu && best > 0 && ['barbell', 'dumbbell', 'leverage machine', 'smith machine', 'cable', 'sled machine', 'ez barbell'].includes(ex.eq) && entryIdx === firstWorkIdx(S.active) &&
+      <div className="small dim" style={{ marginBottom: 8 }}>{t('Ramp-up sets first:')} {warmupSets(best, S.unit).map(x => `${fmtNum(x.w)}×${x.r}`).join(' · ')}</div>}
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+      {entry.target?.wu && <span className="tag acc"><Icon name="flame" />{t('Warm-up')}</span>}
+      {['barbell', 'ez barbell', 'olympic barbell', 'smith machine'].includes(ex.eq) && mode === 'reps' &&
+        <button className="tag" style={{ cursor: 'pointer' }} onClick={() => plateSheet(entry.sets.find(x => !x.done)?.w || best, S.unit)}><Icon name="plate" />{t('Plates')}</button>}
       {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
       {(ex.tg || ex.bp) && <span className="tag">{t(ex.tg || ex.bp)}</span>}
       {ex.eq && <span className="tag">{t(ex.eq)}</span>}
@@ -217,12 +233,13 @@ function ActiveWorkout() {
         beep(S.sound, 1040, 0.12); vibrate(30)
         const isLastExInUnit = idx === unit[unit.length - 1]
         const unitDone = unit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
-        if (isLastExInUnit && !unitDone) startRest(S.restSec)
+        // a planned rest (intervals, warm-up moves) overrides the global rest timer
+        if (isLastExInUnit && !unitDone) startRest(e.target?.rest || S.restSec)
         else if (unitDone) stopRest()
         if (unitDone && isLastUnit) workoutDone = true      // last exercise's last set → done
         // Only reps training has a "working weight" worth confirming — a bodyweight plank
         // has nothing to put in that slider.
-        if (e.sets.every(x => x.done)) { exJustDone = true; if (m === 'reps' && !e.asked) { e.asked = true; askTop = true } }
+        if (e.sets.every(x => x.done)) { exJustDone = true; if (m === 'reps' && !e.asked && !e.target?.wu) { e.asked = true; askTop = true } }
       }
     })
     // reps: topWeight first (it chains into the finish/continue prompt on the last unit).
