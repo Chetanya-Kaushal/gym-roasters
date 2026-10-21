@@ -4,7 +4,6 @@
 // Exercise instructions come from separately generated packs in src/instr/ (one per
 // language, from the upstream dataset) — also lazy-loaded on language switch.
 // Explicit import() maps instead of a glob so any bundler (Next.js/Turbopack, Vite) splits them.
-import { useSyncExternalStore } from 'react'
 
 // UI languages. de/pt have no instruction pack upstream — instructions fall back to English.
 export const LANGS = {
@@ -60,7 +59,7 @@ export async function setLang(l) {
   notify()
 }
 
-// Re-renders the subscribing component (and its children) whenever the language changes.
-export function useLang() {
-  return useSyncExternalStore(fn => { subs.add(fn); return () => subs.delete(fn) }, () => version)
-}
+// Subscription for useLang (lib/useLang.js) — kept React-free here so the server-side API can
+// import modules that translate strings.
+export const subscribeLang = fn => { subs.add(fn); return () => subs.delete(fn) }
+export const langVersion = () => version

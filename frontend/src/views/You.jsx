@@ -4,7 +4,8 @@ import { motion } from 'motion/react'
 import { useStore } from '../store/useStore.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { todayISO } from '../lib/format.js'
-import { dayActivity, closed, streak, lastDays, awardsOf } from '../lib/activity.js'
+import { dayActivity, closed, streak, lastDays, awardsOf, trends, trainingLoad, monthlyChallenge } from '../lib/activity.js'
+import { goalsSheet, pauseSheet, logActivitySheet } from '../components/ActivitySheets.jsx'
 import Rings, { RING_COLORS } from '../components/Rings.jsx'
 import CountUp from '../components/CountUp.jsx'
 import Icon from '../components/Icon.jsx'
@@ -12,6 +13,7 @@ import { Button } from '../components/ui.jsx'
 import { useShowcase, TextReveal, Spotlight } from '../fx/showcase.jsx'
 import { celebrate } from '../fx/motion.js'
 import { shareDayCard } from '../lib/sharecard.js'
+import { PROGRAMS } from '../lib/programs.js'
 
 const tap = { whileTap: { scale: 0.96 }, whileHover: { y: -2 } }
 
@@ -45,9 +47,10 @@ export default function You() {
   ]
   const tiles = [
     ['trophy', 'Awards', `${won}/${awards.length}`, '/awards'],
+    ['person', 'Sharing', t('Friends & competitions'), '/social'],
     ['scale', 'Body & sleep', t('Measurements, photos'), '/body'],
     ['timer', 'Timers', t('HIIT, warm-up, stretch'), '/timer'],
-    ['sparkles', 'Programs', t('12 expert plans'), '/programs'],
+    ['sparkles', 'Programs', t('{0} expert plans', PROGRAMS.length), '/programs'],
     ['figureStrength', 'Body-part workout', t('Pick muscles, go'), '/build'],
     ['chart', 'Stats', t('Charts & records'), '/stats'],
     ['list', 'Exercises', t('1,324 with demos'), '/library'],
@@ -74,6 +77,12 @@ export default function You() {
           </div>
         </div>)}
       </div>
+    </div>
+
+    <div className="row" style={{ gap: 8, marginBottom: 16 }} data-reveal>
+      <Button size="sm" variant="primary" icon="plus" style={{ flex: 1.4 }} onClick={logActivitySheet}>{t('Log workout')}</Button>
+      <Button size="sm" variant="tinted" icon="target" style={{ flex: 1 }} onClick={goalsSheet}>{t('Goals')}</Button>
+      <Button size="sm" variant="tinted" icon="pause" style={{ flex: 1 }} onClick={pauseSheet}>{a.paused ? t('Paused') : t('Pause')}</Button>
     </div>
 
     <div className="card" data-reveal>
@@ -112,6 +121,9 @@ export default function You() {
       </motion.button>)}
     </div>
 
+    <Challenge S={S} />
+    <Load S={S} />
+    <Trends S={S} />
     <WeekSummary S={S} week={week} />
     <div style={{ height: 24 }} />
   </div>
@@ -137,5 +149,56 @@ function WeekSummary({ S, week }) {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
       {items.map(([l, v]) => <div key={l}><div style={{ fontSize: 19, fontWeight: 700 }}>{v}</div><div className="small dim">{t(l)}</div></div>)}
     </div>
+  </div>
+}
+
+function Challenge({ S }) {
+  const c = monthlyChallenge(S)
+  const name = new Date(c.month + '-15T12:00:00').toLocaleDateString(dateLocale(), { month: 'long' })
+  return <div className="card" data-reveal>
+    <div className="row between"><h2 style={{ margin: 0 }}>{t('{0} challenge', name)}</h2><span className="tag acc">{c.done}/{c.goal}</span></div>
+    <div className="small dim" style={{ margin: '6px 0 10px' }}>{t('Close your Move ring on 20 days this month to earn the award.')}</div>
+    <div style={{ height: 10, borderRadius: 5, background: 'var(--surface-3)', overflow: 'hidden' }}>
+      <motion.div initial={{ width: 0 }} animate={{ width: c.p * 100 + '%' }} transition={{ type: 'spring', stiffness: 60, damping: 16 }} style={{ height: '100%', background: '#ff4d6d' }} />
+    </div>
+  </div>
+}
+
+const LOAD_TEXT = {
+  'well-below': ['Well below', 'Much less training than usual — fine for a rest week.'],
+  below: ['Below', 'A bit lighter than your usual week.'],
+  steady: ['Steady', 'Right in line with your usual training — keep building gradually.'],
+  above: ['Above', 'More than usual. Sleep well and watch for soreness.'],
+  'well-above': ['Well above', 'A big jump over your usual load — consider an easier day.'],
+  none: ['Not enough data', 'Log a few weeks of workouts to see your training load.']
+}
+function Load({ S }) {
+  const L = trainingLoad(S)
+  const [label, text] = LOAD_TEXT[L.status]
+  const max = Math.max(1, ...(L.days || [1]))
+  return <div className="card" data-reveal>
+    <div className="row between"><h2 style={{ margin: 0 }}>{t('Training load')}</h2><span className="tag acc">{t(label)}{L.ratio ? ` · ${L.ratio}×` : ''}</span></div>
+    <div className="small dim" style={{ margin: '6px 0 10px' }}>{t(text)}</div>
+    {L.days && <div className="row" style={{ alignItems: 'flex-end', gap: 6, height: 54 }}>
+      {L.days.map((v, i) => <motion.div key={i} initial={{ height: 0 }} animate={{ height: Math.max(3, (v / max) * 50) }} transition={{ type: 'spring', stiffness: 90, damping: 14, delay: i * 0.04 }}
+        style={{ flex: 1, background: 'var(--acc)', borderRadius: 4, opacity: 0.4 + 0.6 * (v / max) }} />)}
+    </div>}
+  </div>
+}
+
+function Trends({ S }) {
+  const list = useMemo(() => trends(S), [S])
+  const ready = list.filter(x => x.ready)
+  return <div className="card" data-reveal>
+    <h2 style={{ marginTop: 0 }}>{t('Trends')}</h2>
+    <div className="small dim" style={{ marginBottom: 10 }}>{t('Your last 90 days compared with the last 365.')}</div>
+    {!ready.length && <div className="small muted">{t('Keep logging — trends appear after about two weeks of data.')}</div>}
+    {ready.map(x => <div key={x.key} className="row between" style={{ padding: '7px 0', borderTop: '1px solid var(--sep)' }}>
+      <span>{t(x.key)}</span>
+      <span className="row" style={{ gap: 8 }}>
+        <span className="small dim">{x.base} →</span><b>{x.recent}</b><span className="small dim">{t(x.unit)}</span>
+        <Icon name={x.dir === 'up' ? 'arrowUp' : x.dir === 'down' ? 'arrowDown' : 'minus'} style={{ color: x.dir === 'up' ? 'var(--green)' : x.dir === 'down' ? 'var(--orange)' : 'var(--label-3)' }} />
+      </span>
+    </div>)}
   </div>
 }

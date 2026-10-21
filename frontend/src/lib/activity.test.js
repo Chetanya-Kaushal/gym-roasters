@@ -26,3 +26,28 @@ describe('activity', () => {
     expect(won.w10).toBe(false)
   })
 })
+
+describe('apple-style extras', async () => {
+  const { trainingLoad, trends, streak, activityBurn, monthlyChallenge } = await import('./activity.js')
+  const { lastDays } = await import('./activity.js')
+  it('quick-logged activities count toward rings', () => {
+    const S = base(), d = todayISO()
+    S.activities = [{ d, type: 'run', min: 30, effort: 5 }]
+    const a = dayActivity(S, d)
+    expect(a.exercise.v).toBe(30)
+    expect(a.move.v).toBe(activityBurn({ type: 'run', min: 30, effort: 5 }, 70))
+  })
+  it('a paused day does not break a streak', () => {
+    const S = base(), days = lastDays(3)
+    S.steps = { [days[0]]: 20000, [days[2]]: 20000 }
+    S.ringPause = [{ from: days[1], to: days[1] }]
+    expect(streak(S, x => x.move.p >= 1)).toBe(2)
+  })
+  it('training load ratio and trends readiness', () => {
+    const S = base()
+    S.activities = lastDays(28).map(d => ({ d, type: 'walk', min: 30, effort: 5 }))
+    expect(trainingLoad(S).status).toBe('steady')
+    expect(trends(S).find(t => t.key === 'Exercise').ready).toBe(true)
+    expect(monthlyChallenge(S).goal).toBe(20)
+  })
+})

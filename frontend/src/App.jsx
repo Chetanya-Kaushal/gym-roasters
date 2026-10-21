@@ -4,7 +4,8 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
-import { setLang, useLang } from './lib/i18n.js'
+import { setLang } from './lib/i18n.js'
+import { useLang } from './lib/useLang.js'
 import { setNav } from './lib/nav.js'
 import { useWakeLock } from './lib/wakelock.js'
 import { startFlow } from './sheets.jsx'
@@ -35,6 +36,7 @@ import Body from './views/Body.jsx'
 import Timer from './views/Timer.jsx'
 import Programs from './views/Programs.jsx'
 import Build from './views/Build.jsx'
+import Social from './views/Social.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -97,6 +99,7 @@ function Shell() {
               <Route path="/timer" element={<Timer />} />
               <Route path="/programs" element={<Programs />} />
               <Route path="/build" element={<Build />} />
+              <Route path="/social" element={<Social />} />
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />

@@ -929,6 +929,17 @@ function SessionRating({ w }) {
   </div>
 }
 
+// Effort rating after a workout (1 easy … 10 all-out) — feeds training load.
+function EffortPick({ id }) {
+  const [v, setV] = useState(null)
+  const pick = n => { setV(n); update(s => { const w = s.workouts.find(x => x.id === id); if (w) w.effort = n }) }
+  return <div style={{ margin: '4px 0 14px' }}>
+    <div className="small muted" style={{ marginBottom: 6 }}>{t('How hard was it?')}</div>
+    <div className="row" style={{ gap: 4, justifyContent: 'center' }}>
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <button key={n} className={'chip' + (v === n ? ' on' : '')} style={{ minWidth: 28, padding: '6px 0' }} onClick={() => pick(n)}>{n}</button>)}
+    </div>
+  </div>
+}
 function FinishSummary({ w, prs, e1prs = [], close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
@@ -949,6 +960,7 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
     <BodyMap load={loadOfWorkouts([w])} body={st.body} />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
+    <EffortPick id={w.id} />
     <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>
   </div>
 }

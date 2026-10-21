@@ -10,6 +10,7 @@ import { ACTIVITY, DIETS, targetsOf, mealPlanOf } from '../lib/nutrition.js'
 import Icon from '../components/Icon.jsx'
 import { Button, NumberField, Segmented } from '../components/ui.jsx'
 import Hero3D from '../fx/Hero3D.jsx'
+import { PROGRAMS } from '../lib/programs.js'
 import { TextReveal, Spotlight } from '../fx/showcase.jsx'
 
 /* First-run setup: who you are and what you want, then a workout plan and daily nutrition
@@ -166,7 +167,7 @@ export default function Start() {
         ? <Button variant="primary" style={{ flex: 1 }} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('Next')}</Button>
         : <Button variant="primary" style={{ flex: 1 }} icon="sparkles" onClick={apply}>{t('Start my plan')}</Button>}
     </div>
-    {key === 'result' && <Button style={{ marginTop: 10 }} onClick={() => { update(s => { s.profile = { ...p, weightKg: Math.round(weightKg * 10) / 10 }; s.body = p.sex }); nav('/programs') }}>{t('Or choose from 12 programs')}</Button>}
+    {key === 'result' && <Button style={{ marginTop: 10 }} onClick={() => { update(s => { s.profile = { ...p, weightKg: Math.round(weightKg * 10) / 10 }; s.body = p.sex }); nav('/programs') }}>{t('Or choose from {0} programs', PROGRAMS.length)}</Button>}
     {key === 'body' && !tg && <div className="dim small" style={{ textAlign: 'center', marginTop: 10 }}>{t('Enter age, height and weight to continue.')}</div>}
     <div style={{ height: 20 }} />
   </div>

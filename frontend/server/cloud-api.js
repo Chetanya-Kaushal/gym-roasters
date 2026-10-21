@@ -11,6 +11,7 @@ import {
 } from '@simplewebauthn/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
+import { dayActivity, lastDays } from '../src/lib/activity.js'
 
 const RP_ID = process.env.RP_ID || 'gym-roasters.vercel.app'
 const ORIGIN = process.env.ORIGIN || 'https://' + RP_ID
@@ -30,7 +31,10 @@ const DDL = [
   q => q`CREATE TABLE IF NOT EXISTS creds (id text PRIMARY KEY, user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE, public_key text NOT NULL, counter bigint NOT NULL DEFAULT 0, transports jsonb NOT NULL DEFAULT '[]')`,
   q => q`CREATE TABLE IF NOT EXISTS states (user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, state jsonb NOT NULL, updated timestamptz NOT NULL DEFAULT now())`,
   q => q`CREATE TABLE IF NOT EXISTS challenges (cid text PRIMARY KEY, data jsonb NOT NULL, exp bigint NOT NULL)`,
-  q => q`CREATE TABLE IF NOT EXISTS ai_usage (user_id text NOT NULL, day date NOT NULL, n int NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))`
+  q => q`CREATE TABLE IF NOT EXISTS ai_usage (user_id text NOT NULL, day date NOT NULL, n int NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))`,
+  q => q`CREATE TABLE IF NOT EXISTS friend_codes (user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, code text UNIQUE NOT NULL)`,
+  q => q`CREATE TABLE IF NOT EXISTS friends (a text NOT NULL REFERENCES users(id) ON DELETE CASCADE, b text NOT NULL REFERENCES users(id) ON DELETE CASCADE, PRIMARY KEY (a, b))`,
+  q => q`CREATE TABLE IF NOT EXISTS comps (id text PRIMARY KEY, a text NOT NULL REFERENCES users(id) ON DELETE CASCADE, b text NOT NULL REFERENCES users(id) ON DELETE CASCADE, start date NOT NULL, finish date NOT NULL)`
 ]
 const migrate = () => (ready ||= (async () => {
   for (const d of DDL) {
@@ -79,6 +83,10 @@ async function takeChallenge(cid) {
   const [c] = await sql()`DELETE FROM challenges WHERE cid = ${String(cid)} RETURNING data, exp`
   return c && +c.exp >= Date.now() ? c.data : null
 }
+
+// Competition points: one point per percent of each ring closed, at most 600 a day (as in the
+// Fitness app's 7-day competitions).
+const points = (S, iso) => { const a = dayActivity(S, iso); return Math.min(600, Math.round(100 * (a.move.p + a.exercise.p + a.hydrate.p))) }
 
 const json = (status, obj, setCookie) => new Response(JSON.stringify(obj), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...(setCookie ? { 'Set-Cookie': setCookie } : {}) }
@@ -219,6 +227,69 @@ const routes = {
       const status = e?.statusCode || e?.status
       return json(status === 429 ? 429 : 502, { error: status === 429 ? 'The AI is busy — try again in a minute' : 'Could not analyse this meal — try again or log it manually' })
     }
+  },
+
+  // ---------- Sharing & competitions ----------
+  // Friends see each other's ring progress and competition points — never workouts, food or
+  // body data. Codes are shared deliberately, so adding a code makes the friendship mutual.
+  'GET social': async req => {
+    const u = await readSession(req)
+    if (!u) return json(401, { error: 'not signed in' })
+    let [c] = await sql()`SELECT code FROM friend_codes WHERE user_id = ${u.id}`
+    while (!c) {
+      const code = crypto.randomBytes(4).toString('base64url').replace(/[-_]/g, 'X').slice(0, 6).toUpperCase()
+      ;[c] = await sql()`INSERT INTO friend_codes (user_id, code) VALUES (${u.id}, ${code}) ON CONFLICT DO NOTHING RETURNING code`
+    }
+    const rows = await sql()`SELECT u.id, u.name, s.state FROM friends f JOIN users u ON u.id = f.b LEFT JOIN states s ON s.user_id = f.b WHERE f.a = ${u.id}`
+    const [mine] = await sql()`SELECT state FROM states WHERE user_id = ${u.id}`
+    const states = { [u.id]: mine?.state || {} }
+    rows.forEach(r => { states[r.id] = r.state || {} })
+    const days = lastDays(7)
+    const friends = rows.map(r => {
+      const S = { workouts: [], bodyweight: [], routines: [], week: {}, dayPlan: {}, ...(r.state || {}) }
+      const week = days.map(d => { const a = dayActivity(S, d); return [+a.move.p.toFixed(2), +a.exercise.p.toFixed(2), +a.hydrate.p.toFixed(2)] })
+      return { id: r.id, name: r.name, today: week[6], week }
+    })
+    const comps = await sql()`SELECT * FROM comps WHERE (a = ${u.id} OR b = ${u.id}) AND finish >= current_date - 7 ORDER BY start DESC`
+    const names = Object.fromEntries([[u.id, u.name], ...rows.map(r => [r.id, r.name])])
+    const out = comps.map(cp => {
+      const span = []
+      for (let d = new Date(cp.start); d <= new Date(cp.finish); d.setUTCDate(d.getUTCDate() + 1)) span.push(d.toISOString().slice(0, 10))
+      const score = id => span.map(d => points({ workouts: [], bodyweight: [], routines: [], week: {}, dayPlan: {}, ...(states[id] || {}) }, d))
+      return { id: cp.id, start: String(cp.start).slice(0, 10), finish: String(cp.finish).slice(0, 10), me: score(u.id), them: score(cp.a === u.id ? cp.b : cp.a), with: names[cp.a === u.id ? cp.b : cp.a] || '?' }
+    })
+    return json(200, { code: c.code, friends, comps: out })
+  },
+
+  'POST social/add': async req => {
+    const u = await readSession(req)
+    if (!u) return json(401, { error: 'not signed in' })
+    const code = String((await body(req)).code || '').trim().toUpperCase()
+    const [f] = await sql()`SELECT user_id FROM friend_codes WHERE code = ${code}`
+    if (!f) return json(404, { error: 'No one has that code — check it and try again' })
+    if (f.user_id === u.id) return json(400, { error: 'That’s your own code' })
+    await sql()`INSERT INTO friends (a, b) VALUES (${u.id}, ${f.user_id}), (${f.user_id}, ${u.id}) ON CONFLICT DO NOTHING`
+    return json(200, { ok: true })
+  },
+
+  'POST social/remove': async req => {
+    const u = await readSession(req)
+    if (!u) return json(401, { error: 'not signed in' })
+    const id = String((await body(req)).id || '')
+    await sql()`DELETE FROM friends WHERE (a = ${u.id} AND b = ${id}) OR (a = ${id} AND b = ${u.id})`
+    return json(200, { ok: true })
+  },
+
+  'POST social/compete': async req => {
+    const u = await readSession(req)
+    if (!u) return json(401, { error: 'not signed in' })
+    const id = String((await body(req)).id || '')
+    const [fr] = await sql()`SELECT 1 FROM friends WHERE a = ${u.id} AND b = ${id}`
+    if (!fr) return json(403, { error: 'You can only challenge friends' })
+    const [live] = await sql()`SELECT 1 FROM comps WHERE ((a = ${u.id} AND b = ${id}) OR (a = ${id} AND b = ${u.id})) AND finish >= current_date`
+    if (live) return json(409, { error: 'You already have a competition running with this friend' })
+    await sql()`INSERT INTO comps (id, a, b, start, finish) VALUES (${crypto.randomBytes(8).toString('hex')}, ${u.id}, ${id}, current_date, current_date + 6)`
+    return json(200, { ok: true })
   },
 
   'PUT data': async req => {

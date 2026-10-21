@@ -29,6 +29,21 @@ function cardioMet(id, speed) {
   return 5   // walking on incline, elliptical, stepmill, other conditioning
 }
 
+// Quick-logged workouts (any activity, like the Workout app's types): MET at a moderate effort
+// (Compendium of Physical Activities), scaled by the logged effort 1–10 (5 = moderate).
+export const ACTIVITY_TYPES = [
+  ['run', 'Run', 'figureRun', 9.8], ['walk', 'Walk', 'figureRun', 3.5], ['hike', 'Hike', 'figureRun', 6],
+  ['cycle', 'Cycle', 'bike', 7.5], ['swim', 'Swim', 'swim', 7], ['hiit', 'HIIT', 'bolt', 8],
+  ['strength', 'Strength', 'dumbbell', 3.5], ['yoga', 'Yoga', 'stretch', 2.5], ['pilates', 'Pilates', 'stretch', 3],
+  ['dance', 'Dance', 'heart', 5], ['sports', 'Sports', 'medal', 7], ['boxing', 'Boxing', 'boxing', 7.8],
+  ['row', 'Rowing', 'figureStrength', 7], ['stairs', 'Stairs', 'figureRun', 8.8], ['elliptical', 'Elliptical', 'figureRun', 5], ['other', 'Other', 'flame', 4]
+]
+export const activityBurn = (a, kg) => {
+  const met = (ACTIVITY_TYPES.find(x => x[0] === a.type) || ACTIVITY_TYPES.at(-1))[3]
+  const k = 0.6 + 0.08 * (a.effort || 5)   // effort 5 → ×1.0, effort 10 → ×1.4, effort 1 → ×0.68
+  return Math.round(met * k * kg * (a.min || 0) / 60)
+}
+
 // Minutes and active kcal of one finished workout. Logged cardio sets carry their own minutes
 // and speed; the rest of the session is counted as resistance training.
 export function workoutBurn(w, kg) {
@@ -46,6 +61,7 @@ export function dayActivity(S, iso) {
   const kg = kgOf(S)
   let minutes = 0, kcal = 0
   for (const w of S.workouts || []) if (w.d === iso) { const b = workoutBurn(w, kg); minutes += b.minutes; kcal += b.kcal }
+  for (const a of S.activities || []) if (a.d === iso) { minutes += a.min || 0; kcal += activityBurn(a, kg) }
   const steps = (S.steps || {})[iso] || 0
   kcal += Math.round(steps * 0.04 * kg / 70)
   const prof = S.profile && !S.profile.skipped ? S.profile : null
@@ -54,16 +70,22 @@ export function dayActivity(S, iso) {
   const waterGoal = waterTargetOf(tg, !!effectiveRoutine(S, iso))
   const food = dayTotals((S.food || {})[iso])
   const moveGoal = S.moveGoal || MOVE_GOALS[prof?.goal] || 400
+  const exGoal = S.exerciseGoal || EXERCISE_GOAL
+  const wGoal = S.waterGoal ? S.waterGoal + (effectiveRoutine(S, iso) ? 500 : 0) : waterGoal
   return {
     iso, kcal, minutes: Math.min(180, minutes), steps, water, food, tg,
     move: { v: kcal, goal: moveGoal, p: kcal / moveGoal },
-    exercise: { v: Math.min(180, minutes), goal: EXERCISE_GOAL, p: Math.min(180, minutes) / EXERCISE_GOAL },
-    hydrate: { v: water, goal: waterGoal, p: water / waterGoal },
+    exercise: { v: Math.min(180, minutes), goal: exGoal, p: Math.min(180, minutes) / exGoal },
+    hydrate: { v: water, goal: wGoal, p: water / wGoal },
+    paused: isPaused(S, iso),
     protein: tg ? { v: food.p, goal: tg.protein, p: food.p / tg.protein } : null
   }
 }
 
 export const closed = a => a.move.p >= 1 && a.exercise.p >= 1 && a.hydrate.p >= 1
+
+// Paused rings (rest day, illness, holiday): a paused day neither breaks nor extends a streak.
+export const isPaused = (S, iso) => (S.ringPause || []).some(p => iso >= p.from && iso <= p.to)
 
 const shift = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoOf(d) }
 export const lastDays = (n, end = todayISO()) => Array.from({ length: n }, (_, i) => shift(end, i - n + 1))
@@ -71,10 +93,15 @@ export const lastDays = (n, end = todayISO()) => Array.from({ length: n }, (_, i
 // Days in a row a test passes, ending today — or yesterday, if today is not done yet.
 export function streak(S, test, today = todayISO()) {
   let d = test(dayActivity(S, today)) ? today : shift(today, -1), n = 0
-  while (n < 3650 && test(dayActivity(S, d))) { n++; d = shift(d, -1) }
+  for (let guard = 0; guard < 3650; guard++) {
+    const a = dayActivity(S, d)
+    if (a.paused && !test(a)) { d = shift(d, -1); continue }
+    if (!test(a)) break
+    n++; d = shift(d, -1)
+  }
   return n
 }
-const longest = (S, test, days) => { let best = 0, cur = 0; for (const d of days) { cur = test(dayActivity(S, d)) ? cur + 1 : 0; best = Math.max(best, cur) } return best }
+const longest = (S, test, days) => { let best = 0, cur = 0; for (const d of days) { const a = dayActivity(S, d); if (a.paused && !test(a)) continue; cur = test(a) ? cur + 1 : 0; best = Math.max(best, cur) } return best }
 
 // Every calendar day from the first logged one to today — the range awards are checked over
 // (all days, not just logged ones, so a gap breaks a streak).
@@ -128,8 +155,74 @@ export function awardsOf(S) {
     early: hours.some(h => h < 7), night: hours.some(h => h >= 21),
     weighIns: (S.bodyweight || []).length
   }
-  return AWARDS.map(([id, icon, title, how, f]) => {
+  const list = AWARDS.map(([id, icon, title, how, f]) => {
     const p = Math.max(0, Math.min(1, f(c) || 0))
     return { id, icon, title, how, p, earned: p >= 1 }
   })
+  // past months' challenges that were completed stay as awards; the current one shows progress
+  const months = [...new Set(days.map(d => d.slice(0, 7)))]
+  for (const m of months) {
+    const end = m === todayISO().slice(0, 7) ? todayISO() : lastOfMonth(m)
+    const mc = monthlyChallenge(S, end)
+    if (mc.p >= 1 || m === todayISO().slice(0, 7)) {
+      const name = new Date(m + '-15T12:00:00').toLocaleDateString('en', { month: 'long', year: 'numeric' })
+      list.push({ id: 'month-' + m, icon: 'calendar', title: name + ' Challenge', how: 'Close your Move ring on 20 days this month', p: mc.p, earned: mc.p >= 1 })
+    }
+  }
+  return list
+}
+
+// Trends: the last 90 days against the last 365 (as in the Fitness app). Needs some history —
+// returns null for a metric with fewer than 14 logged days in the year.
+export function trends(S, today = todayISO()) {
+  const year = lastDays(365, today).map(d => dayActivity(S, d))
+  const q = year.slice(-90)
+  const metric = (key, get, unit, fmt = v => Math.round(v)) => {
+    const vals = year.map(get), logged = vals.filter(v => v > 0).length
+    if (logged < 14) return { key, unit, ready: false }
+    const avg = xs => xs.reduce((a, b) => a + b, 0) / xs.length
+    const recent = avg(q.map(get)), base = avg(vals)
+    const dir = recent > base * 1.03 ? 'up' : recent < base * 0.97 ? 'down' : 'flat'
+    return { key, unit, ready: true, recent: fmt(recent), base: fmt(base), dir }
+  }
+  const sleepOf = d => (S.sleep || {})[d.iso]?.h || 0
+  return [
+    metric('Move', d => d.move.v, 'kcal/day'),
+    metric('Exercise', d => d.exercise.v, 'min/day'),
+    metric('Steps', d => d.steps, 'steps/day'),
+    metric('Water', d => d.hydrate.v / 1000, 'L/day', v => Math.round(v * 10) / 10),
+    metric('Sleep', sleepOf, 'h/night', v => Math.round(v * 10) / 10),
+    metric('Protein', d => d.food.p, 'g/day')
+  ]
+}
+
+// Training load (acute:chronic): effort-weighted minutes over the last 7 days against the
+// average week of the last 28. ~0.8–1.3 is a steady build; above ~1.5 is a jump that raises
+// injury risk in team-sport data (Gabbett 2016) — a guide, not a diagnosis.
+export function trainingLoad(S, today = todayISO()) {
+  const kg = kgOf(S)
+  const load = iso => {
+    let n = 0
+    for (const w of S.workouts || []) if (w.d === iso) n += workoutBurn(w, kg).minutes * (w.effort || 6)
+    for (const a of S.activities || []) if (a.d === iso) n += (a.min || 0) * (a.effort || 5)
+    return n
+  }
+  const days = lastDays(28, today).map(load)
+  const acute = days.slice(-7).reduce((a, b) => a + b, 0)
+  const chronic = days.reduce((a, b) => a + b, 0) / 4
+  if (!chronic) return { acute, chronic, ratio: null, status: 'none' }
+  const ratio = acute / chronic
+  const status = ratio < 0.6 ? 'well-below' : ratio < 0.8 ? 'below' : ratio <= 1.3 ? 'steady' : ratio <= 1.5 ? 'above' : 'well-above'
+  return { acute: Math.round(acute), chronic: Math.round(chronic), ratio: Math.round(ratio * 100) / 100, status, days: days.slice(-7) }
+}
+
+const lastOfMonth = m => { const d = new Date(m + '-01T12:00:00'); d.setMonth(d.getMonth() + 1); d.setDate(0); return isoOf(d) }
+
+// This month's challenge: close the Move ring on 20 days of the month.
+export function monthlyChallenge(S, today = todayISO()) {
+  const month = today.slice(0, 7)
+  const days = []
+  for (let d = month + '-01'; d <= today; d = shift(d, 1)) days.push(d)
+  const done = days.filter(d => dayActivity(S, d).move.p >= 1).length
+  return { month, goal: 20, done, p: Math.min(1, done / 20) }
 }
