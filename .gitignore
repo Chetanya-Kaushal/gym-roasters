@@ -25,3 +25,7 @@ graphify-out/
 frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
+
+# Vercel
+.vercel/
+.env*.local

@@ -22,7 +22,10 @@ export const DEF = {
   coach: null,
   // Smart plan + nutrition (views/Start.jsx, views/Food.jsx). profile is null until the
   // first-run questions are answered; food/water are keyed by ISO date.
-  profile: null, food: {}, water: {}, myFoods: []
+  profile: null, food: {}, water: {}, myFoods: [],
+  // Activity (views/You.jsx, lib/activity.js): steps & sleep keyed by ISO date, body
+  // measurements, Move goal override, and which awards/celebrations were already shown.
+  steps: {}, sleep: {}, measures: [], moveGoal: null, awardsSeen: [], celebrated: null
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
